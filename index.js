@@ -96,6 +96,128 @@ async function run() {
       return result;
     }
 
+    //dashboard
+    app.get('/dashboard/overview', async (req, res) => {
+  try {
+
+    const newPackages = await parcelCollection.countDocuments();
+
+    const readyForShipping = await parcelCollection.countDocuments({
+      deliveryStatus: 'pending-pickup'
+    });
+
+    const completed = await parcelCollection.countDocuments({
+      deliveryStatus: 'parcel_delivered'
+    });
+
+    const newClients = await userCollection.countDocuments({
+      role: 'user'
+    });
+
+    res.send({
+      newPackages,
+      readyForShipping,
+      completed,
+      newClients
+    });
+
+  } catch (error) {
+    res.status(500).send({ message: "Dashboard overview error" });
+  }
+});
+
+app.get('/dashboard/shipment-stats', async (req, res) => {
+
+  const stats = await parcelCollection.aggregate([
+    {
+      $group: {
+        _id: {
+          $dayOfWeek: "$createdAt"
+        },
+        total: { $sum: 1 }
+      }
+    },
+    {
+      $sort: { _id: 1 }
+    }
+  ]).toArray();
+
+  res.send(stats);
+});
+
+app.get('/dashboard/shipping-reports', async (req, res) => {
+
+  const reports = await parcelCollection.aggregate([
+    {
+      $lookup: {
+        from: "users",
+        localField: "senderEmail",
+        foreignField: "email",
+        as: "client"
+      }
+    },
+    {
+      $unwind: "$client"
+    },
+    {
+      $project: {
+        parcelName: 1,
+        cost: 1,
+        deliveryStatus: 1,
+        createdAt: 1,
+        trackingId: 1,
+        clientName: "$client.displayName"
+      }
+    },
+    {
+      $sort: { createdAt: -1 }
+    },
+    {
+      $limit: 10
+    }
+  ]).toArray();
+
+  res.send(reports);
+});
+
+app.get('/dashboard/late-invoices', async (req, res) => {
+
+  const invoices = await paymentCollection
+    .find({})
+    .sort({ paidAt: -1 })
+    .limit(5)
+    .toArray();
+
+  res.send(invoices);
+});
+
+app.get('/dashboard/shipment-alerts', async (req, res) => {
+
+  const alerts = await trackingsCollection
+    .find({
+      status: { $in: ['damaged', 'delayed'] }
+    })
+    .sort({ createdAt: -1 })
+    .limit(5)
+    .toArray();
+
+  res.send(alerts);
+});
+
+app.get('/dashboard/revenue', async (req, res) => {
+
+  const revenue = await paymentCollection.aggregate([
+    {
+      $group: {
+        _id: null,
+        totalRevenue: { $sum: "$amount" }
+      }
+    }
+  ]).toArray();
+
+  res.send(revenue[0] || { totalRevenue: 0 });
+});
+
     // users related apis
     app.get('/users', verifyToken, async (req, res) => {
       const searchText = req.query.searchText;
