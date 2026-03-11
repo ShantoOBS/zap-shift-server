@@ -98,125 +98,125 @@ async function run() {
 
     //dashboard
     app.get('/dashboard/overview', async (req, res) => {
-  try {
+      try {
 
-    const newPackages = await parcelCollection.countDocuments();
+        const newPackages = await parcelCollection.countDocuments();
 
-    const readyForShipping = await parcelCollection.countDocuments({
-      deliveryStatus: 'pending-pickup'
+        const readyForShipping = await parcelCollection.countDocuments({
+          deliveryStatus: 'pending-pickup'
+        });
+
+        const completed = await parcelCollection.countDocuments({
+          deliveryStatus: 'parcel_delivered'
+        });
+
+        const newClients = await userCollection.countDocuments({
+          role: 'user'
+        });
+
+        res.send({
+          newPackages,
+          readyForShipping,
+          completed,
+          newClients
+        });
+
+      } catch (error) {
+        res.status(500).send({ message: "Dashboard overview error" });
+      }
     });
 
-    const completed = await parcelCollection.countDocuments({
-      deliveryStatus: 'parcel_delivered'
-    });
+    app.get('/dashboard/shipment-stats', async (req, res) => {
 
-    const newClients = await userCollection.countDocuments({
-      role: 'user'
-    });
-
-    res.send({
-      newPackages,
-      readyForShipping,
-      completed,
-      newClients
-    });
-
-  } catch (error) {
-    res.status(500).send({ message: "Dashboard overview error" });
-  }
-});
-
-app.get('/dashboard/shipment-stats', async (req, res) => {
-
-  const stats = await parcelCollection.aggregate([
-    {
-      $group: {
-        _id: {
-          $dayOfWeek: "$createdAt"
+      const stats = await parcelCollection.aggregate([
+        {
+          $group: {
+            _id: {
+              $dayOfWeek: "$createdAt"
+            },
+            total: { $sum: 1 }
+          }
         },
-        total: { $sum: 1 }
-      }
-    },
-    {
-      $sort: { _id: 1 }
-    }
-  ]).toArray();
+        {
+          $sort: { _id: 1 }
+        }
+      ]).toArray();
 
-  res.send(stats);
-});
+      res.send(stats);
+    });
 
-app.get('/dashboard/shipping-reports', async (req, res) => {
+    app.get('/dashboard/shipping-reports', async (req, res) => {
 
-  const reports = await parcelCollection.aggregate([
-    {
-      $lookup: {
-        from: "users",
-        localField: "senderEmail",
-        foreignField: "email",
-        as: "client"
-      }
-    },
-    {
-      $unwind: "$client"
-    },
-    {
-      $project: {
-        parcelName: 1,
-        cost: 1,
-        deliveryStatus: 1,
-        createdAt: 1,
-        trackingId: 1,
-        clientName: "$client.displayName"
-      }
-    },
-    {
-      $sort: { createdAt: -1 }
-    },
-    {
-      $limit: 10
-    }
-  ]).toArray();
+      const reports = await parcelCollection.aggregate([
+        {
+          $lookup: {
+            from: "users",
+            localField: "senderEmail",
+            foreignField: "email",
+            as: "client"
+          }
+        },
+        {
+          $unwind: "$client"
+        },
+        {
+          $project: {
+            parcelName: 1,
+            cost: 1,
+            deliveryStatus: 1,
+            createdAt: 1,
+            trackingId: 1,
+            clientName: "$client.displayName"
+          }
+        },
+        {
+          $sort: { createdAt: -1 }
+        },
+        {
+          $limit: 10
+        }
+      ]).toArray();
 
-  res.send(reports);
-});
+      res.send(reports);
+    });
 
-app.get('/dashboard/late-invoices', async (req, res) => {
+    app.get('/dashboard/late-invoices', async (req, res) => {
 
-  const invoices = await paymentCollection
-    .find({})
-    .sort({ paidAt: -1 })
-    .limit(5)
-    .toArray();
+      const invoices = await paymentCollection
+        .find({})
+        .sort({ paidAt: -1 })
+        .limit(5)
+        .toArray();
 
-  res.send(invoices);
-});
+      res.send(invoices);
+    });
 
-app.get('/dashboard/shipment-alerts', async (req, res) => {
+    app.get('/dashboard/shipment-alerts', async (req, res) => {
 
-  const alerts = await trackingsCollection
-    .find({
-      status: { $in: ['damaged', 'delayed'] }
-    })
-    .sort({ createdAt: -1 })
-    .limit(5)
-    .toArray();
+      const alerts = await trackingsCollection
+        .find({
+          status: { $in: ['damaged', 'delayed'] }
+        })
+        .sort({ createdAt: -1 })
+        .limit(5)
+        .toArray();
 
-  res.send(alerts);
-});
+      res.send(alerts);
+    });
 
-app.get('/dashboard/revenue', async (req, res) => {
+    app.get('/dashboard/revenue', async (req, res) => {
 
-  const revenue = await paymentCollection.aggregate([
-    {
-      $group: {
-        _id: null,
-        totalRevenue: { $sum: "$amount" }
-      }
-    }
-  ]).toArray();
+      const revenue = await paymentCollection.aggregate([
+        {
+          $group: {
+            _id: null,
+            totalRevenue: { $sum: "$amount" }
+          }
+        }
+      ]).toArray();
 
-  res.send(revenue[0] || { totalRevenue: 0 });
-});
+      res.send(revenue[0] || { totalRevenue: 0 });
+    });
 
     // users related apis
     app.get('/users', verifyToken, async (req, res) => {
@@ -378,7 +378,7 @@ app.get('/dashboard/revenue', async (req, res) => {
         ...req.body,
         createdAt: new Date(),
         paymentStatus: "unpaid",
-        trackingId : trackingId
+        trackingId: trackingId
       };
 
       logTracking(trackingId, 'parcel_created');
@@ -528,117 +528,117 @@ app.get('/dashboard/revenue', async (req, res) => {
 
     // Create checkout session
     app.post('/create-checkout-session', async (req, res) => {
-  try {
+      try {
 
-    const { cost, parcelName, senderEmail, parcelId, trackingId } = req.body;
+        const { cost, parcelName, senderEmail, parcelId, trackingId } = req.body;
 
-    if (!cost || !parcelName || !senderEmail || !parcelId) {
-      return res.status(400).send({ message: "Missing payment data" });
-    }
+        if (!cost || !parcelName || !senderEmail || !parcelId) {
+          return res.status(400).send({ message: "Missing payment data" });
+        }
 
-    const session = await stripe.checkout.sessions.create({
-      payment_method_types: ['card'],
-      mode: 'payment',
+        const session = await stripe.checkout.sessions.create({
+          payment_method_types: ['card'],
+          mode: 'payment',
 
-      line_items: [
-        {
-          price_data: {
-            currency: 'usd',
-            product_data: { name: parcelName },
-            unit_amount: Math.round(Number(cost) * 100),
+          line_items: [
+            {
+              price_data: {
+                currency: 'usd',
+                product_data: { name: parcelName },
+                unit_amount: Math.round(Number(cost) * 100),
+              },
+              quantity: 1,
+            },
+          ],
+
+          customer_email: senderEmail,
+
+          metadata: {
+            parcelId,
+            parcelName,
+            trackingId
           },
-          quantity: 1,
-        },
-      ],
 
-      customer_email: senderEmail,
+          success_url: `${process.env.SITE_DOMAIN}/dashboard/my-parcels?session_id={CHECKOUT_SESSION_ID}`,
+          cancel_url: `${process.env.SITE_DOMAIN}/dashboard/payment-cancel`,
+        });
 
-      metadata: {
-        parcelId,
-        parcelName,
-        trackingId
-      },
+        res.send({ url: session.url });
 
-      success_url: `${process.env.SITE_DOMAIN}/dashboard/my-parcels?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${process.env.SITE_DOMAIN}/dashboard/payment-cancel`,
+      } catch (error) {
+        console.error(error);
+        res.status(500).send({ message: "Stripe checkout failed" });
+      }
     });
-
-    res.send({ url: session.url });
-
-  } catch (error) {
-    console.error(error);
-    res.status(500).send({ message: "Stripe checkout failed" });
-  }
-});
 
     // Payment success handler
-  app.patch('/payment-success', async (req, res) => {
-  try {
+    app.patch('/payment-success', async (req, res) => {
+      try {
 
-    const sessionId = req.query.session_id;
+        const sessionId = req.query.session_id;
 
-    if (!sessionId) {
-      return res.status(400).send({ message: "Session ID missing" });
-    }
-
-    const session = await stripe.checkout.sessions.retrieve(sessionId);
-    const transactionId = session.payment_intent;
-
-    const paymentExist = await paymentCollection.findOne({ transactionId });
-
-    if (paymentExist) {
-      return res.send({
-        message: 'already exists',
-        transactionId,
-        trackingId: paymentExist.trackingId
-      });
-    }
-
-    if (session.payment_status !== 'paid') {
-      return res.send({ success: false });
-    }
-
-    const trackingId = session.metadata.trackingId;
-
-    const result = await parcelCollection.updateOne(
-      { _id: new ObjectId(session.metadata.parcelId) },
-      {
-        $set: {
-          paymentStatus: 'paid',
-          deliveryStatus: 'pending-pickup'
+        if (!sessionId) {
+          return res.status(400).send({ message: "Session ID missing" });
         }
+
+        const session = await stripe.checkout.sessions.retrieve(sessionId);
+        const transactionId = session.payment_intent;
+
+        const paymentExist = await paymentCollection.findOne({ transactionId });
+
+        if (paymentExist) {
+          return res.send({
+            message: 'already exists',
+            transactionId,
+            trackingId: paymentExist.trackingId
+          });
+        }
+
+        if (session.payment_status !== 'paid') {
+          return res.send({ success: false });
+        }
+
+        const trackingId = session.metadata.trackingId;
+
+        const result = await parcelCollection.updateOne(
+          { _id: new ObjectId(session.metadata.parcelId) },
+          {
+            $set: {
+              paymentStatus: 'paid',
+              deliveryStatus: 'pending-pickup'
+            }
+          }
+        );
+
+        const payment = {
+          amount: session.amount_total / 100,
+          currency: session.currency,
+          customerEmail: session.customer_email,
+          parcelId: session.metadata.parcelId,
+          parcelName: session.metadata.parcelName,
+          transactionId,
+          paymentStatus: session.payment_status,
+          paidAt: new Date(),
+          trackingId
+        };
+
+        const resultPayment = await paymentCollection.insertOne(payment);
+
+        logTracking(trackingId, 'parcel_paid')
+
+        res.send({
+          success: true,
+          modifyParcel: result,
+          paymentInfo: resultPayment,
+          trackingId,
+          transactionId
+        });
+
+      } catch (error) {
+        console.error(error);
+        res.status(500).send({ success: false });
       }
-    );
-
-    const payment = {
-      amount: session.amount_total / 100,
-      currency: session.currency,
-      customerEmail: session.customer_email,
-      parcelId: session.metadata.parcelId,
-      parcelName: session.metadata.parcelName,
-      transactionId,
-      paymentStatus: session.payment_status,
-      paidAt: new Date(),
-      trackingId
-    };
-
-    const resultPayment = await paymentCollection.insertOne(payment);
-
-    logTracking(trackingId, 'parcel_paid')
-
-    res.send({
-      success: true,
-      modifyParcel: result,
-      paymentInfo: resultPayment,
-      trackingId,
-      transactionId
     });
-
-  } catch (error) {
-    console.error(error);
-    res.status(500).send({ success: false });
-  }
-});
 
     app.get('/payments', verifyToken, async (req, res) => {
       const email = req.query.email;
@@ -659,13 +659,13 @@ app.get('/dashboard/revenue', async (req, res) => {
 
     })
 
-     // tracking related apis
-        app.get('/trackings/:trackingId/logs', async (req, res) => {
-            const trackingId = req.params.trackingId;
-            const query = { trackingId };
-            const result = await trackingsCollection.find(query).toArray();
-            res.send(result);
-        })
+    // tracking related apis
+    app.get('/trackings/:trackingId/logs', async (req, res) => {
+      const trackingId = req.params.trackingId;
+      const query = { trackingId };
+      const result = await trackingsCollection.find(query).toArray();
+      res.send(result);
+    })
 
     // -------------------- HEALTH CHECK --------------------
     await client.db("admin").command({ ping: 1 });
