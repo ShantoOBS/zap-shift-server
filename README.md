@@ -2,6 +2,8 @@
 
 Backend REST API for **Zap Shift**, a parcel shipping and delivery management platform. Handles users, parcels, riders, payments, tracking, and admin analytics with role-based access and secure payment processing.
 
+Live demo: https://zap-shift-server-smoky.vercel.app/
+
 ---
 
 ## Table of Contents
