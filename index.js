@@ -4,7 +4,9 @@ const crypto = require('crypto');
 const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 require('dotenv').config();
 
-const stripe = require('stripe')(process.env.STRIPE_KEY);
+const stripe = process.env.STRIPE_KEY
+  ? require('stripe')(process.env.STRIPE_KEY)
+  : null;
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -15,11 +17,28 @@ app.use(express.json());
 
 const admin = require("firebase-admin");
 
-const serviceAccount = require("./zap-shift.json");
+// const serviceAccount = require("./zap-shift.json");
 
-admin.initializeApp({
-  credential: admin.credential.cert(serviceAccount)
-});
+
+
+try {
+  if (process.env.FB_SERVICE_KEY) {
+    const decoded = Buffer.from(process.env.FB_SERVICE_KEY, 'base64').toString('utf8');
+    const serviceAccount = JSON.parse(decoded);
+
+    admin.initializeApp({
+      credential: admin.credential.cert(serviceAccount)
+    });
+  } else {
+    console.error("FB_SERVICE_KEY missing");
+  }
+} catch (err) {
+  console.error("Firebase init failed:", err.message);
+}
+
+
+
+
 
 const verifyToken = async (req, res, next) => {
   const token = req.headers.authorization;
@@ -286,25 +305,7 @@ async function run() {
     })
 
 
-    // payment related apis
-    app.get('/payments', verifyToken, async (req, res) => {
-      const email = req.query.email;
-      const query = {}
-
-      // console.log( 'headers', req.headers);
-
-      if (email) {
-        query.customerEmail = email;
-
-        // check email address
-        if (email !== req.decoded_email) {
-          return res.status(403).send({ message: 'forbidden access' })
-        }
-      }
-      const cursor = paymentCollection.find(query).sort({ paidAt: -1 });
-      const result = await cursor.toArray();
-      res.send(result);
-    })
+  
 
     // riders related apis
     app.get('/riders', async (req, res) => {
@@ -640,24 +641,27 @@ async function run() {
       }
     });
 
+      // payment related apis
     app.get('/payments', verifyToken, async (req, res) => {
       const email = req.query.email;
+      const query = {}
 
-      console.log(req.headers);
+      // console.log( 'headers', req.headers);
 
-      const query = {};
       if (email) {
         query.customerEmail = email;
-        if (email !== req.decoded_email) return res.status(403).send({ message: 'forbidden access' });
-      }
 
+        // check email address
+        if (email !== req.decoded_email) {
+          return res.status(403).send({ message: 'forbidden access' })
+        }
+      }
       const cursor = paymentCollection.find(query).sort({ paidAt: -1 });
       const result = await cursor.toArray();
-
       res.send(result);
-
-
     })
+
+
 
     // tracking related apis
     app.get('/trackings/:trackingId/logs', async (req, res) => {
@@ -668,21 +672,19 @@ async function run() {
     })
 
     // -------------------- HEALTH CHECK --------------------
-    await client.db("admin").command({ ping: 1 });
-    console.log("✅ MongoDB connected successfully");
+    // await client.db("admin").command({ ping: 1 });
+    // console.log("✅ MongoDB connected successfully");
   } catch (error) {
     console.error(error);
   }
 }
 
-run();
+run().catch(console.dir);
 
-// -------------------- ROOT --------------------
 app.get('/', (req, res) => {
-  res.send('Server is running 🚀');
+  res.send('Server is running');
 });
 
-// -------------------- SERVER --------------------
-app.listen(port, () => {
-  console.log(`🚀 Server running on port ${port}`);
-});
+app.listen(port, () => console.log(`Server running on port ${port}`));
+
+module.exports = app

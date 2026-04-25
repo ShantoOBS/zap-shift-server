@@ -1,3 +1,5 @@
 zap-shift.json
 node_modules/
 .env
+.vercel
+.env*.local
